@@ -1,0 +1,3 @@
+embeddings/**/*.jsonl text eol=lf
+embeddings/**/*.jsonl merge=union
+*.md text eol=lf

@@ -8,6 +8,13 @@
 *.so
 *.dylib
 
+# Compiled binaries at root
+/server
+/doc-index
+
+# Runtime config file (created by doc-index config)
+rag-doc-index.config.json
+
 # Test binary, built with `go test -c`
 *.test
 
