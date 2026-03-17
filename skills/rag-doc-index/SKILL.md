@@ -37,7 +37,15 @@ Verify TEI is running:
 curl http://localhost:8080/health
 ```
 
-## Step 1 — Configure the skill
+## Installation
+
+### Step 1 — Install the CLI tool
+need go v1.26+
+```bash
+go install github.com/vrealzhou/doc-index/cmd/doc-index@latest
+```
+
+## Step 2 — Configure the skill
 
 Set the TEI endpoint and documents path:
 
@@ -50,7 +58,7 @@ Show current configuration:
 doc-index config --show
 ```
 
-## Step 2 — Index documents
+## Step 3 — Index documents
 
 Index all markdown files in the documents path:
 
@@ -63,7 +71,7 @@ Force reindex all documents:
 doc-index index --force
 ```
 
-## Step 3 — Search for relevant documentation
+## Step 4 — Search for relevant documentation
 
 Search using natural language queries:
 
@@ -77,7 +85,7 @@ Get JSON output for programmatic use:
 doc-index search "database schema" --json
 ```
 
-## Step 4 — Use results in your work
+## Step 5 — Use results in your work
 
 The search results include:
 - **Document**: Source markdown file

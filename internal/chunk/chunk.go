@@ -107,8 +107,10 @@ func splitIntoChunks(content string, maxLen, overlap int) []Chunk {
 
 		if len(body) > maxLen {
 			subChunks := splitByParagraphs(title, body, maxLen, overlap, &idx)
+			bodyOffset := 0
 			for j := range subChunks {
-				subChunks[j].Offset = bodyStart + subChunks[j].Offset
+				subChunks[j].Offset = bodyStart + bodyOffset
+				bodyOffset += subChunks[j].Length
 			}
 			chunks = append(chunks, subChunks...)
 		} else if len(body) > 0 {
