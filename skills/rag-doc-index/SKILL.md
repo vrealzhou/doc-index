@@ -9,13 +9,54 @@ description: >
 
 # RAG Document Index Skill
 
-Semantic search over markdown documentation for coding agents.
+Semantic search over markdown documentation using RAG (Retrieval-Augmented Generation).
+
+## Overview
+
+This skill enables intelligent search through markdown documentation by:
+- **Indexing** markdown files and generating vector embeddings
+- **Semantic search** using natural language queries
+- **Context retrieval** for LLM-based workflows
+
+## Sub-Skills
+
+This skill is organized into two focused sub-skills:
+
+### 📇 [Index Skill](./index/SKILL.md)
+Set up and index your markdown documentation.
+- Generate embeddings from markdown files
+- Manage document updates and reindexing
+- Check indexing status
+
+**Use when:** You need to index or update the document index.
+
+### 🔍 [Search Skill](./search/SKILL.md)
+Search indexed documentation using semantic queries.
+- Natural language search queries
+- Filter and rank results by relevance
+- Retrieve precise document sections
+
+**Use when:** Documents are already indexed and you need to find relevant information.
 
 ## Prerequisites
 
-This skill requires a running TEI (Text Embeddings Inference) server.
+### System Requirements
 
-### Start TEI Server
+- **Go 1.26+** installed
+- **TEI Server** (Text Embeddings Inference) for generating embeddings
+- **Markdown documentation** files to index
+
+### Hardware Recommendations
+
+- **macOS**: Apple Silicon with Metal support
+- **Linux**: NVIDIA GPU with CUDA support (recommended) or CPU
+- **Memory**: At least 4GB RAM for embedding generation
+
+## Installation
+
+### Step 1: Install TEI Server
+
+TEI (Text Embeddings Inference) is required for generating vector embeddings.
 
 **macOS (Apple Silicon):**
 ```bash
@@ -25,111 +66,72 @@ text-embeddings-inference \
   --device metal
 ```
 
-**Linux (with GPU):**
+**Linux (with NVIDIA GPU):**
 ```bash
 docker run --gpus all -p 8080:80 \
   ghcr.io/huggingface/text-embeddings-inference:latest \
   --model-id BAAI/bge-small-en-v1.5
 ```
 
-Verify TEI is running:
+**Linux (CPU only):**
+```bash
+docker run -p 8080:80 \
+  ghcr.io/huggingface/text-embeddings-inference:latest \
+  --model-id BAAI/bge-small-en-v1.5
+```
+
+**Verify TEI is running:**
 ```bash
 curl http://localhost:8080/health
 ```
 
-## Installation
+Expected response:
+```json
+{"status":"ok"}
+```
 
-### Step 1 — Install the CLI tool
-need go v1.26+
+### Step 2: Install the CLI Tool
+
+Install the `doc-index` CLI tool using Go:
+
 ```bash
 go install github.com/vrealzhou/doc-index/cmd/doc-index@latest
 ```
 
-## Step 2 — Configure the skill
+Verify the installation:
 
-Set the TEI endpoint and documents path:
+```bash
+doc-index --version
+```
+
+## Configuration
+
+### Initial Setup
+
+Configure the skill with your TEI endpoint and documentation path:
 
 ```bash
 doc-index config --tei=http://localhost:8080 --docs=/path/to/project/docs
 ```
 
-Show current configuration:
+### Configuration Options
+
+| Option | Description | Example |
+|--------|-------------|---------|
+| `--tei=<url>` | TEI server endpoint URL | `http://localhost:8080` |
+| `--docs=<path>` | Root path to markdown documents | `/project/docs` |
+
+### View Current Configuration
+
+Check your current settings:
+
 ```bash
 doc-index config --show
 ```
 
-## Step 3 — Index documents
+### Configuration Storage
 
-Index all markdown files in the documents path:
-
-```bash
-doc-index index
-```
-
-Force reindex all documents:
-```bash
-doc-index index --force
-```
-
-## Step 4 — Search for relevant documentation
-
-Search using natural language queries:
-
-```bash
-doc-index search "authentication flow"
-doc-index search "API rate limiting" --top-k=10 --min-score=0.5
-```
-
-Get JSON output for programmatic use:
-```bash
-doc-index search "database schema" --json
-```
-
-## Step 5 — Use results in your work
-
-The search results include:
-- **Document**: Source markdown file
-- **Section**: Heading/title of the relevant section
-- **Position**: Offset and length for reading specific content
-- **Score**: Similarity score (0-1, higher is better)
-
-Use these results to understand the codebase context before making changes.
-
-## Quick Reference
-
-| Goal | Command |
-|------|---------|
-| Configure | `doc-index config --tei=<url> --docs=<path>` |
-| Show config | `doc-index config --show` |
-| Index documents | `doc-index index` |
-| Force reindex | `doc-index index --force` |
-| Check status | `doc-index status` |
-| Basic search | `doc-index search "query"` |
-| More results | `doc-index search "query" --top-k=10` |
-| Filter by score | `doc-index search "query" --min-score=0.5` |
-| JSON output | `doc-index search "query" --json` |
-
-## Options
-
-### search command
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--top-k=N` | 5 | Number of results to return |
-| `--min-score=N` | 0.3 | Minimum similarity score (0-1) |
-| `--json` | false | Output as JSON |
-
-### config command
-
-| Option | Description |
-|--------|-------------|
-| `--tei=<url>` | Set TEI endpoint URL |
-| `--docs=<path>` | Set documents root path |
-| `--show` | Show current configuration |
-
-## Configuration File
-
-Configuration is saved to `rag-doc-index.config.json` alongside the binary:
+Configuration is saved to: `skills/rag-doc-index/rag-doc-index.config.json`
 
 ```json
 {
@@ -138,15 +140,91 @@ Configuration is saved to `rag-doc-index.config.json` alongside the binary:
 }
 ```
 
+## Quick Start
+
+```bash
+# 1. Configure the system
+doc-index config --tei=http://localhost:8080 --docs=/path/to/docs
+
+# 2. Index your documents (see index/SKILL.md for details)
+doc-index index
+
+# 3. Search your documents (see search/SKILL.md for details)
+doc-index search "authentication flow"
+doc-index search "API endpoints" --top-k=10
+```
+
+## When to Use This Skill
+
+Use this skill when you need to:
+- Find relevant documentation sections in a codebase
+- Understand project architecture or design decisions
+- Search for specific concepts or features in documentation
+- Retrieve context about APIs, configuration, or best practices
+
+## Key Features
+
+- ✅ **Git-friendly JSONl storage** for team collaboration
+- ✅ **Auto-reindex** with hash-based staleness detection
+- ✅ **Context budget management** for LLM usage
+- ✅ **Metal GPU support** on macOS for fast embeddings
+- ✅ **Semantic search** with natural language queries
+- ✅ **Programmatic access** via JSON output
+
+## Architecture
+
+```
+your-project/
+├── docs/                    # Your markdown documentation
+│   ├── README.md
+│   ├── architecture/
+│   └── api/
+└── embeddings/              # Auto-generated embeddings
+    ├── README.jsonl
+    ├── architecture.jsonl
+    └── api.jsonl
+```
+
 ## Storage
 
-- **Config**: `skills/rag-doc-index/rag-doc-index.config.json`
-- **Embeddings**: `<docs_path>/../embeddings/*.jsonl`
-- **Format**: JSONL with meta line + chunk lines
+- **Configuration**: `skills/rag-doc-index/rag-doc-index.config.json`
+- **Embeddings**: Sibling `embeddings/` directory (auto-created)
+- **Format**: JSONL with metadata and chunk embeddings
+
+## Related Documentation
+
+- **[Index Documentation](../../docs/rag-doc-index-installation.md)** - Detailed installation guide
+- **[Configuration Guide](../../docs/rag-doc-index-configuration.md)** - Configuration options
+- **[API Reference](../../docs/rag-doc-index-api-reference.md)** - Complete command reference
+- **[Usage Examples](../../docs/rag-doc-index-usage-examples.md)** - Detailed examples
+
+## Quick Reference
+
+| Goal | Command | See |
+|------|---------|-----|
+| Configure | `doc-index config --tei=<url> --docs=<path>` | This file |
+| Index documents | `doc-index index` | [Index Skill](./index/SKILL.md) |
+| Search documents | `doc-index search "query"` | [Search Skill](./search/SKILL.md) |
+| Check status | `doc-index status` | [Index Skill](./index/SKILL.md) |
+
+## Getting Started Checklist
+
+- [ ] Install TEI server and verify it's running
+- [ ] Install doc-index CLI tool
+- [ ] Configure with your docs path: `doc-index config --tei=http://localhost:8080 --docs=/path/to/docs`
+- [ ] Index your documents: `doc-index index`
+- [ ] Test search: `doc-index search "installation"`
+- [ ] Explore results and adjust parameters as needed
+
+## Next Steps
+
+1. 📇 **[Index your documents](./index/SKILL.md)** - Learn how to index and manage your documentation
+2. 🔍 **[Search your documents](./search/SKILL.md)** - Learn how to search and retrieve relevant information
 
 ## Notes
 
+- TEI server must be running for both indexing and search operations
 - Embeddings are stored in a sibling `embeddings/` directory to the docs folder
-- Use `--force` to reindex when documents have been modified
-- Lower `--min-score` if getting no results (default: 0.3)
-- TEI must be running for indexing and search operations
+- The system uses hash-based detection to avoid reindexing unchanged documents
+- Use natural language queries for best search results
+- GPU acceleration significantly improves performance (Metal on macOS, CUDA on Linux)
