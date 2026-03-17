@@ -1,0 +1,35 @@
+version: "3.8"
+
+services:
+  doc-index:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./docs:/app/docs:ro
+      - ./embeddings:/app/embeddings
+    environment:
+      - TEI_ENDPOINT=${TEI_ENDPOINT:-http://host.docker.internal:8080}
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+      - EMBEDDING_DIM=${EMBEDDING_DIM:-384}
+      - BATCH_SIZE=${BATCH_SIZE:-32}
+      - TEI_TIMEOUT_MS=${TEI_TIMEOUT_MS:-30000}
+      - DOCS_PATH=/app/docs
+      - EMBEDDINGS_PATH=/app/embeddings
+      - MAX_CHUNK_SIZE=${MAX_CHUNK_SIZE:-1200}
+      - OVERLAP_SIZE=${OVERLAP_SIZE:-100}
+      - MAX_CONTEXT_TOKENS=${MAX_CONTEXT_TOKENS:-20000}
+      - WARN_THRESHOLD=${WARN_THRESHOLD:-16000}
+      - HARD_LIMIT=${HARD_LIMIT:-18000}
+      - DEFAULT_TOP_K=${DEFAULT_TOP_K:-5}
+      - MIN_SCORE=${MIN_SCORE:-0.3}
+      - PREVIEW_LEN=${PREVIEW_LEN:-150}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    profiles:
+      - skill
+
+# Usage:
+#   docker compose run doc-index status
+#   docker compose run doc-index index
+#   docker compose run doc-index search "your query"

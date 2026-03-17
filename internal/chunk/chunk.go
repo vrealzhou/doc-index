@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"strings"
+	"unicode/utf8"
 )
 
 type Meta struct {
@@ -59,68 +60,60 @@ func Split(content, docID string, maxLen, overlap int) ChunkWithMeta {
 }
 
 func splitIntoChunks(content string, maxLen, overlap int) []Chunk {
-	if len(content) <= maxLen {
+	if utf8.RuneCountInString(content) <= maxLen {
 		return []Chunk{{
 			Idx:    0,
 			Title:  "Overview",
 			Offset: 0,
-			Length: len(content),
+			Length: utf8.RuneCountInString(content),
 		}}
 	}
 
 	var chunks []Chunk
+	offset := 0
 	idx := 0
 
-	separator := "\n## "
-	sections := strings.Split(content, separator)
-	pos := 0
+	sections := strings.Split(content, "\n## ")
 
 	for i, sec := range sections {
-		secStart := pos
-		secLen := len(sec)
-		pos += secLen + len(separator)
-
-		if i == 0 && !strings.HasPrefix(content, "## ") {
-			if secLen > 100 {
+		if i == 0 && !strings.HasPrefix(sec, "## ") {
+			if len(sec) > 100 {
 				chunks = append(chunks, Chunk{
 					Idx:    idx,
 					Title:  "Overview",
-					Offset: secStart,
-					Length: secLen,
+					Offset: offset,
+					Length: utf8.RuneCountInString(sec),
 				})
 				idx++
 			}
+			offset += utf8.RuneCountInString(sec) + 3
 			continue
 		}
 
-		newlineIdx := strings.Index(sec, "\n")
-		var title, body string
-		if newlineIdx == -1 {
-			title = sec
-			body = ""
-		} else {
-			title = sec[:newlineIdx]
-			body = sec[newlineIdx+1:]
+		lines := strings.SplitN(sec, "\n", 2)
+		title := strings.TrimPrefix(lines[0], "## ")
+
+		var body string
+		if len(lines) > 1 {
+			body = strings.TrimSpace(lines[1])
 		}
 
-		bodyStart := secStart + len(title) + 1
-
-		if len(body) > maxLen {
+		if utf8.RuneCountInString(body) > maxLen {
 			subChunks := splitByParagraphs(title, body, maxLen, overlap, &idx)
-			bodyOffset := 0
-			for j := range subChunks {
-				subChunks[j].Offset = bodyStart + bodyOffset
-				bodyOffset += subChunks[j].Length
+			for _, sc := range subChunks {
+				sc.Offset = offset
+				offset += sc.Length
+				chunks = append(chunks, sc)
 			}
-			chunks = append(chunks, subChunks...)
-		} else if len(body) > 0 {
+		} else {
 			chunks = append(chunks, Chunk{
 				Idx:    idx,
 				Title:  title,
-				Offset: bodyStart,
-				Length: len(body),
+				Offset: offset,
+				Length: utf8.RuneCountInString(body),
 			})
 			idx++
+			offset += utf8.RuneCountInString(body) + 3
 		}
 	}
 
@@ -128,68 +121,42 @@ func splitIntoChunks(content string, maxLen, overlap int) []Chunk {
 }
 
 func splitByParagraphs(title, body string, maxLen, overlap int, idx *int) []Chunk {
+	paras := strings.Split(body, "\n\n")
 	var chunks []Chunk
+	var current strings.Builder
 	localIdx := 0
 
-	pos := 0
-	chunkStart := 0
-	chunkLen := 0
-
-	for {
-		nextPara := strings.Index(body[pos:], "\n\n")
-		var paraEnd int
-		if nextPara == -1 {
-			paraEnd = len(body)
-		} else {
-			paraEnd = pos + nextPara
+	for _, para := range paras {
+		para = strings.TrimSpace(para)
+		if para == "" {
+			continue
 		}
 
-		originalParaLen := paraEnd - pos
-		para := strings.TrimSpace(body[pos:paraEnd])
-		paraLen := len(para)
+		if current.Len()+len(para) > maxLen && current.Len() > 0 {
+			chunks = append(chunks, Chunk{
+				Idx:    *idx,
+				Title:  formatTitle(title, localIdx),
+				Length: utf8.RuneCountInString(current.String()),
+			})
+			*idx++
+			localIdx++
 
-		if paraLen > 0 {
-			if chunkLen > 0 && chunkLen+2+paraLen > maxLen {
-				chunks = append(chunks, Chunk{
-					Idx:    *idx,
-					Title:  formatTitle(title, localIdx),
-					Offset: chunkStart,
-					Length: chunkLen,
-				})
-				*idx++
-				localIdx++
-
-				overlapStart := chunkStart + chunkLen - overlap
-				if overlapStart < chunkStart {
-					overlapStart = chunkStart
-				}
-				chunkStart = overlapStart
-				chunkLen = paraEnd - overlapStart
-			} else {
-				if chunkLen == 0 {
-					chunkStart = pos
-				}
-				if chunkLen > 0 {
-					chunkLen += 2
-				}
-				chunkLen += originalParaLen
-			}
+			overlapRunes := getOverlap(current.String(), overlap)
+			current.Reset()
+			current.WriteString(overlapRunes)
+			current.WriteString("\n\n")
 		}
 
-		if nextPara == -1 {
-			break
-		}
-		pos = paraEnd + 2
+		current.WriteString(para)
+		current.WriteString("\n\n")
 	}
 
-	if chunkLen > 0 {
+	if current.Len() > 0 {
 		chunks = append(chunks, Chunk{
 			Idx:    *idx,
 			Title:  formatTitle(title, localIdx+1),
-			Offset: chunkStart,
-			Length: chunkLen,
+			Length: utf8.RuneCountInString(strings.TrimSpace(current.String())),
 		})
-		*idx++
 	}
 
 	return chunks
@@ -203,17 +170,19 @@ func formatTitle(title string, part int) string {
 }
 
 func getOverlap(s string, n int) string {
-	if len(s) <= n {
+	runes := []rune(s)
+	if len(runes) <= n {
 		return s
 	}
-	return s[len(s)-n:]
+	return string(runes[len(runes)-n:])
 }
 
 func Truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	return string(runes[:maxLen]) + "..."
 }
 
 func ComputeHash(content string) string {
